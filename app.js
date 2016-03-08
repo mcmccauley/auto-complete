@@ -45,6 +45,61 @@ app.use(function(req, res, next) {
   next(err);
 });
 
+
+
+// read file into redis
+
+
+  var fs = require('fs')
+    , util = require('util')
+    , stream = require('stream')
+    , es = require("event-stream");
+
+
+function initMap(fileName) {
+
+  var lineNr = 1;
+
+  s = fs.createReadStream(fileName)
+      .pipe(es.split())
+      .pipe(es.mapSync(function(line){
+
+          // pause the readstream
+          s.pause();
+
+          lineNr += 1;
+
+          // (function(){
+
+              var parts = line.split(" ");
+              var word = parts[0];
+              var freq = parts[1];
+              // process line here and call s.resume() when rdy
+              console.log(line);
+
+              for (var c = 1; c <= word.length; c++)
+              {
+                client.ZADD(word.substring(0, c), 10000000000000 - freq, word)
+              }
+                
+
+              // resume the readstream
+              s.resume();
+
+          // })();
+          })
+          .on('error', function(){
+              console.log('Error while reading file.');
+          })
+          .on('end', function(){
+              console.log('Read entirefile.')
+          })
+      );
+}
+
+ initMap('smallSegment.txt')
+
+
 // error handlers
 
 // development error handler
