@@ -7,8 +7,8 @@ router.get('/', function(req, res, next) {
 });
 
 router.get('/get-suggestions', function(req, res, next) {
-  var q = req.param('q');
-  client.ZRANGE(q, 0, 10, function(err, values) {
+  var q = req.param('q').toLowerCase();
+  client.ZRANGE(q, 0, NUM_SUGGESTIONS_TO_RETURN, function(err, values) {
 
 		// Get the locations and their types in parallel.
 

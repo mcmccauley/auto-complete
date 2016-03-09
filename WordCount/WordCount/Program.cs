@@ -108,7 +108,7 @@ namespace WordCount
                                                    !grouping.Key.Any(c => !char.IsLetter(c) && c != '-' && c != '\'') &&
                                                    !grouping.Key.StartsWith("-") &&
                                                    !grouping.Key.EndsWith("-"))
-                                        .OrderBy(kvp => kvp.Value);
+                                        .OrderByDescending(kvp => kvp.Value);
 
 
             var outFile = new StreamWriter(new FileStream(filesToProcess.First().DirectoryName + "/out.txt", FileMode.Create));

@@ -6,98 +6,169 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var redis = require("redis");
 
-var routes = require('./routes/index');
-var users = require('./routes/users');
+var fs = require('fs')
+var util = require('util')
+var stream = require('stream')
+var es = require("event-stream");
 
 var app = express();
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
 
 //Create redis client 
 client = redis.createClient();
-
 client.on('connect', function() {
-  console.log('connected');
+	console.log('connected to redis');
 });
-
 client.on("error", function (err) {
-  console.log("Redis Error: " + err);
+	console.log("Redis Error: " + err);
 });
 
 
+NUM_SUGGESTIONS_TO_RETURN = 10
+MINIMUM_ALLOWABLE_FREQUENCY = 10
+
+
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'jade');
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+// app.use(bodyParser.json());
+// app.use(bodyParser.urlencoded({ extended: false }));
+// app.use(cookieParser());
 
-app.use('/', routes);
-app.use('/users', users);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+
+var router = express.Router();
+
+// router.get('/', function(req, res, next) {
+//   res.render('index', { title: 'Auto-complete!' });
+// });
+
+router.get('/get-suggestions', function(req, res, next) {
+  var q = req.param('q');
+  client.ZRANGE(q, 0, 10, function(err, values) {
+
+		// Get the locations and their types in parallel.
+
+		res.json(values);
+	})
 });
+app.use('/', router);
+app.use(express.static(path.join(__dirname, 'public')));
 
 
 
 // read file into redis
 
 
-  var fs = require('fs')
-    , util = require('util')
-    , stream = require('stream')
-    , es = require("event-stream");
-
 
 function initMap(fileName) {
+	var lineNr = 1;
 
-  var lineNr = 1;
+	var batch = client.batch()
 
-  s = fs.createReadStream(fileName)
-      .pipe(es.split())
-      .pipe(es.mapSync(function(line){
+	s = fs.createReadStream(fileName)
+	.pipe(es.split())
+	.pipe(
+		es.mapSync(function(line){
 
-          // pause the readstream
-          s.pause();
+			// pause the readstream
+			s.pause();
 
-          lineNr += 1;
+			lineNr += 1;
 
-          // (function(){
+			var parts = line.split(" ");
+			var word = parts[0];
+			var freq = parts[1];
 
-              var parts = line.split(" ");
-              var word = parts[0];
-              var freq = parts[1];
-              // process line here and call s.resume() when rdy
-              if(lineNr % 1000 == 0) console.log(line);
+			if (freq < MINIMUM_ALLOWABLE_FREQUENCY){
+				batch.exec(function(err, replices){
+					if (err) throw err;
+					s.resume()
+					s.end()
+				})
+				return;
+			}
 
-              for (var c = 1; c <= word.length; c++)
-              {
-                client.ZADD(word.substring(0, c), (10000000000 - freq), word)
-              }
-                
+			for (var c = 1; c <= word.length; c++)
+			{
+				var substring = word.substring(0, c)
+				batch.ZADD(substring, (10000000000 - freq), word)
+			}
 
-              // resume the readstream
-              s.resume();
+			if(lineNr % 500 == 0){
+				if (lineNr % 5000 == 0)
+					console.log('' + lineNr + ': ' + line);
+	
+				batch.exec(function(err, replies){
+					if (err) throw err;	
+					s.resume();
+				})
+			} 
+			else
+			{
+				s.resume();
+			}
+			
+		})
+		.on('error', function(){
+			console.log('Error while reading file.');
+		})
+		.on('end', function(){
+			console.log('Finished indexing file. Indexed lines: ' + lineNr)
+			console.log('Beginning cleanup...')
 
-          // })();
-          })
-          .on('error', function(){
-              console.log('Error while reading file.');
-          })
-          .on('end', function(){
-              console.log('Read entirefile.')
-          })
-      );
+			var cursor = '0';
+
+			function scan() {
+				client.SCAN(
+					cursor,
+					'COUNT', '50000',
+					function(err, res) {
+						if (err) throw err;
+
+
+						// Update the cursor position for the next scan
+						cursor = res[0];
+						// get the SCAN result for this iteration
+						var keys = res[1];
+						console.log('cleaning up ' + keys.length + ' keys');
+
+						if (keys.length > 0) {
+							for (var i = keys.length - 1; i >= 0; i--) {
+								batch.ZREMRANGEBYRANK(keys[i], NUM_SUGGESTIONS_TO_RETURN + 1, 0)
+							};
+						}
+						batch.exec()
+
+						if (cursor === '0') {
+							return console.log('Cleanup complete');
+						}
+
+						return scan();
+					}
+				);
+			}
+
+			scan();
+		})
+	);
 }
 
- initMap('data/out.txt')
+initMap('D:/unzipped/out.txt')
+
+
+
+
+
+
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+	var err = new Error('Not Found');
+	err.status = 404;
+	next(err);
+});
 
 
 // error handlers
@@ -105,23 +176,23 @@ function initMap(fileName) {
 // development error handler
 // will print stacktrace
 if (app.get('env') === 'development') {
-  app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
-    res.render('error', {
-      message: err.message,
-      error: err
-    });
-  });
+	app.use(function(err, req, res, next) {
+		res.status(err.status || 500);
+		res.render('error', {
+			message: err.message,
+			error: err
+		});
+	});
 }
 
 // production error handler
 // no stacktraces leaked to user
 app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
+	res.status(err.status || 500);
+	res.render('error', {
+		message: err.message,
+		error: {}
+	});
 });
 
 
