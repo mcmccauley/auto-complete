@@ -75,11 +75,11 @@ function initMap(fileName) {
               var word = parts[0];
               var freq = parts[1];
               // process line here and call s.resume() when rdy
-              console.log(line);
+              if(lineNr % 1000 == 0) console.log(line);
 
               for (var c = 1; c <= word.length; c++)
               {
-                client.ZADD(word.substring(0, c), 10000000000000 - freq, word)
+                client.ZADD(word.substring(0, c), (10000000000 - freq), word)
               }
                 
 
@@ -97,7 +97,7 @@ function initMap(fileName) {
       );
 }
 
- initMap('smallSegment.txt')
+ initMap('data/out.txt')
 
 
 // error handlers

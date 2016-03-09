@@ -8,32 +8,40 @@
 
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="font-awesome-4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.min.js"></script>
-    <script src="/javascripts/home.js"></script>
+
+    <script src="/js/autocomplete.js"></script>
+
     <title>Autocomplete</title>
     <link rel="shortcut icon" href="icon.ico" type="image/x-icon" />
 
 
 
 </head>
+<body ng-app="autocomplete" ng-controller="auto">
         </br>
         </br>
         <center><img src="autocomplete.jpg"></center>
         <script type="text/ng-template" id="locTemplate">
             <a class="typeaheadEntry">
-                <span ng-bind="match.model.name" class="typeaheadLeft" ></span>
-                <span ng-bind="match.model.type" class="typeaheadRight"></span>
+                <span ng-bind="match.model" class="typeaheadLeft" ></span>
+                <!-- <span ng-bind="match.model" class="typeaheadRight"></span> -->
             </a>
         </script>
 
         <div class="input-group" style="padding: 50px 200px 50px">
-            <input type="text"
-                   class="form-control"
-                   ng-model="asyncSelected"
-                   placeholder="Locations loaded via $http"
-                   typeahead="loc.name for loc in getLocation($viewValue)"
-                   typeahead-loading="loadingLocations"
-                   typeahead-template-url="locTemplate">
+            <form name="form">
+                <input type="text"
+                        name="input"
+                       class="form-control"
+                       ng-model="text"
+                       placeholder="these suggestions are fly as hell"
+                       typeahead="suggestion for suggestion in getSuggestions($viewValue)"
+                       typeahead-on-select="onSelect($item, $model, $viewValue)"
+                       typeahead-loading="loadingSuggestions"
+                       typeahead-template-url="locTemplate">
+            </form>
             <span class="input-group-btn">
                 <button type="button" class="btn btn-default">Submit</button>
             </span>
@@ -43,7 +51,8 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
 
-<body>
+
+
 
 </body>
 </html>
