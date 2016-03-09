@@ -77,6 +77,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // read file into redis
 function initMap(fileName) {
+client.FLUSHALL(function(){
+
 	var lineNr = 1;
 
 	var batch = client.batch()
@@ -167,6 +169,7 @@ function initMap(fileName) {
 			scan();
 		})
 	);
+});
 }
 
  initMap(config.DATA_PATH)
