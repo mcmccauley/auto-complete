@@ -14,8 +14,13 @@ var es = require("event-stream");
 var app = express();
 
 
+var config = require('./config.js');
+
+
 //Create redis client 
-client = redis.createClient();
+client = redis.createClient({
+	host: config.REDIS_HOST
+});
 client.on('connect', function() {
 	console.log('connected to redis');
 });
@@ -23,9 +28,6 @@ client.on("error", function (err) {
 	console.log("Redis Error: " + err);
 });
 
-
-NUM_SUGGESTIONS_TO_RETURN = 10
-MINIMUM_ALLOWABLE_FREQUENCY = 10
 
 
 app.set('views', path.join(__dirname, 'views'));
@@ -41,15 +43,29 @@ app.use(logger('dev'));
 
 var router = express.Router();
 
-// router.get('/', function(req, res, next) {
-//   res.render('index', { title: 'Auto-complete!' });
-// });
 
 router.get('/get-suggestions', function(req, res, next) {
   var q = req.param('q');
-  client.ZRANGE(q, 0, 10, function(err, values) {
+  var key = q.toLowerCase();
+
+  var firstChar = q.substring(0,1)
+  var secondChar = q.substring(1,2)
+
+  client.ZRANGE(key, 0, config.NUM_SUGGESTIONS_TO_RETURN, function(err, values) {
 
 		// Get the locations and their types in parallel.
+
+		for (var i = values.length - 1; i >= 0; i--) {
+			
+			if (firstChar && secondChar && firstChar == firstChar.toUpperCase() && secondChar == secondChar.toUpperCase()){
+				// If the second letter is uppercase, they probably want the whole thing to be uppercase.
+				values[i] = values[i].toUpperCase();
+			}
+			else {
+				// Otherwise, keep the same casing as the input.
+				values[i] = values[i].replace(key, q);
+			}
+		};
 
 		res.json(values);
 	})
@@ -60,9 +76,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 // read file into redis
-
-
-
 function initMap(fileName) {
 	var lineNr = 1;
 
@@ -82,7 +95,7 @@ function initMap(fileName) {
 			var word = parts[0];
 			var freq = parts[1];
 
-			if (freq < MINIMUM_ALLOWABLE_FREQUENCY){
+			if (freq < config.MINIMUM_ALLOWABLE_FREQUENCY){
 				batch.exec(function(err, replices){
 					if (err) throw err;
 					s.resume()
@@ -137,7 +150,7 @@ function initMap(fileName) {
 
 						if (keys.length > 0) {
 							for (var i = keys.length - 1; i >= 0; i--) {
-								batch.ZREMRANGEBYRANK(keys[i], NUM_SUGGESTIONS_TO_RETURN + 1, 0)
+								batch.ZREMRANGEBYRANK(keys[i], config.NUM_SUGGESTIONS_TO_RETURN + 1, 0)
 							};
 						}
 						batch.exec()
@@ -156,7 +169,7 @@ function initMap(fileName) {
 	);
 }
 
-initMap('D:/unzipped/out.txt')
+ initMap(config.DATA_PATH)
 
 
 
@@ -194,6 +207,9 @@ app.use(function(err, req, res, next) {
 		error: {}
 	});
 });
+
+
+app.listen(3000)
 
 
 module.exports = app;
