@@ -1,65 +1,56 @@
 <!DOCTYPE html>
-<br lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 
+	<link href="css/app.css" rel="stylesheet">
+	<link href="css/bootstrap.min.css" rel="stylesheet">
+	<link href="font-awesome-4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.min.js"></script>
 
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link href="font-awesome-4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.min.js"></script>
+	<script src="/js/autocomplete.js"></script>
 
-    <script src="/js/autocomplete.js"></script>
-
-    <title>Autocomplete</title>
-    <link rel="shortcut icon" href="icon.ico" type="image/x-icon" />
-
-
+	<title>Autocomplete</title>
+	<link rel="shortcut icon" href="icon.ico" type="image/x-icon" />
 
 </head>
 <body ng-app="autocomplete" ng-controller="auto">
-        </br>
-        </br>
-        <div class="col-lg-8 col-lg-offset-2 col-md-12">
+	</br>
+	</br>
+	<div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 col-sm-12">
+	
+		<img id="logo" src="logo-1000.png">
+		<script type="text/ng-template" id="locTemplate">
+			<a class="typeaheadEntry">
+				<span ng-bind="match.model" class="typeaheadLeft" ></span>
+				<!-- <span ng-bind="match.model" class="typeaheadRight"></span> -->
+			</a>
+		</script>
 
-            <center><img src="autocomplete.jpg"></center>
-            <script type="text/ng-template" id="locTemplate">
-                <a class="typeaheadEntry">
-                    <span ng-bind="match.model" class="typeaheadLeft" ></span>
-                    <!-- <span ng-bind="match.model" class="typeaheadRight"></span> -->
-                </a>
-            </script>
-
-
-
-            <div class="form-group" style="padding-top: 100px" >
-                <form name="form">
-                    <textarea 
-                           style="width: 100%"
-                           name="input"
-                           rows="10"
-                           class="form-control"
-                           ng-model="text"
-                           placeholder="these suggestions are fly as hell"
-                           typeahead="suggestion for suggestion in getSuggestions($viewValue)"
-                           typeahead-on-select="onSelect($item, $model, $viewValue)"
-                           typeahead-loading="loadingSuggestions"
-                           typeahead-template-url="locTemplate">
-                </form>
-                <span class="input-group-btn">
-                    <button type="button" class="btn btn-default">Submit</button>
-                </span>
-            </div>
-        </div>
-
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-
-
-
+		<div class="form-group" style="padding-top: 100px" >
+			<form name="form"
+					style="width: 100%">
+				<textarea 
+					id="sugbox"
+					name="input"
+					rows="8"
+					class="form-control"
+					ng-model="text"
+					typeahead-show-hint="true"
+					placeholder="Start typing to get suggestions!"
+					typeahead="suggestion for suggestion in getSuggestions($viewValue)"
+					typeahead-on-select="onSelect($item, $model, $viewValue)"
+					typeahead-loading="loadingSuggestions"
+					typeahead-template-url="locTemplate">
+			</form>
+			<span class="input-group-btn">
+					<button type="button" class="btn btn-default">Submit</button>
+			</span>
+		</div>
+	</div>
 
 </body>
 </html>
