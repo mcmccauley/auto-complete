@@ -7,7 +7,7 @@
 
 	<link href="css/app.css" rel="stylesheet">
 	<link href="css/bootstrap.min.css" rel="stylesheet">
-	<link href="font-awesome-4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+	<link href="css/font-awesome.min.css" rel="stylesheet" type="text/css">
 	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.min.js"></script>
 
@@ -20,7 +20,7 @@
 <body ng-app="autocomplete" ng-controller="auto">
 	</br>
 	</br>
-	<div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 col-sm-12">
+	<div class="col-sm-8 col-sm-offset-2 col-xs-12">
 	
 		<img id="logo" src="logo-1000.png">
 		<script type="text/ng-template" id="locTemplate">
@@ -30,7 +30,8 @@
 			</a>
 		</script>
 
-		<div class="form-group" style="padding-top: 100px" >
+		<div class="form-group">
+
 			<form name="form"
 					style="width: 100%">
 				<textarea 
@@ -40,16 +41,16 @@
 					class="form-control"
 					ng-model="text"
 					typeahead-show-hint="true"
-					placeholder="Start typing to get suggestions!"
+					placeholder="{{phrase}}"
 					typeahead="suggestion for suggestion in getSuggestions($viewValue)"
 					typeahead-on-select="onSelect($item, $model, $viewValue)"
 					typeahead-loading="loadingSuggestions"
 					typeahead-template-url="locTemplate">
+					</textarea>
 			</form>
-			<span class="input-group-btn">
-					<button type="button" class="btn btn-default">Submit</button>
-			</span>
 		</div>
+		<div id="catspacer"></div>
+		<img id="cat" src="catout.png">
 	</div>
 
 </body>

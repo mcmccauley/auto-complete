@@ -45,13 +45,13 @@ var router = express.Router();
 
 
 router.get('/get-suggestions', function(req, res, next) {
-  var q = req.param('q');
-  var key = q.toLowerCase();
+	var q = req.param('q');
+	var key = q.toLowerCase();
 
-  var firstChar = q.substring(0,1)
-  var secondChar = q.substring(1,2)
+	var firstChar = q.substring(0,1)
+	var secondChar = q.substring(1,2)
 
-  client.ZRANGE(key, 0, config.NUM_SUGGESTIONS_TO_RETURN, function(err, values) {
+	client.ZRANGE(key, 0, config.NUM_SUGGESTIONS_TO_RETURN, function(err, values) {
 
 		// Get the locations and their types in parallel.
 
@@ -65,7 +65,7 @@ router.get('/get-suggestions', function(req, res, next) {
 				// Otherwise, keep the same casing as the input.
 				values[i] = values[i].replace(key, q);
 			}
-		};
+		}
 
 		res.json(values);
 	})
