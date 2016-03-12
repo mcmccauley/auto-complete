@@ -19,31 +19,35 @@ namespace WordCount
         public static BlockingCollection<string> inputPool;
         public static BlockingCollection<List<KeyValuePair<string, int>>> outputToBeMergedPool;
 
-
         static void Main(string[] args)
         {
             var dirInfo = new DirectoryInfo(Path);
 
             filesToProcess = dirInfo
                 .EnumerateFiles()
-                .Where(fi => !fi.Name.Contains("out"))
-                //.Take(10)
+                .Where(fi => fi.Name.Contains("wiki"))
+                //.Take(50)
                 .ToList();
 
             var doneEvent = new ManualResetEvent(false);
             var jobs = new List<WordCount>();
 
+            // Record the total number of files that will be processed so that we know when we will be done.
             WordCount.NumberOfTasks = filesToProcess.Count;
 
-
-
-            // A bounded collection. It can hold no more 
-            // than 100 items at once.
+            // Make a queue that contains all the files to be processed that each worker will pull from as needed.
             var inputFiles = new ConcurrentQueue<FileInfo>(filesToProcess);
             
+            // Make our producer/consumer pools.
+            // Input pool contains the text contents of each file that has been read in.
             inputPool = new BlockingCollection<string>(15);
+
+            // This pool contains a list of words and thier counts that are awaiting merging into the
+            // final count.
             outputToBeMergedPool = new BlockingCollection<List<KeyValuePair<string, int>>>(20);
 
+
+            // Start off our input file worker.
             Task.Run(() =>
             {
                 FileInfo fileInfo;
@@ -53,20 +57,22 @@ namespace WordCount
 
                     string contents = reader.ReadToEnd();
 
-                    // Blocks if numbers.Count == dataItems.BoundedCapacity
+                    // Blocks if the input pool is full until there is room.
                     inputPool.Add(contents);
                 }
 
-                // Let consumer know we are done.
+                // Let consumers know we are done.
                 inputPool.CompleteAdding();
             });
 
-            // The merger thread
+
+            // Start off our merger worker
             var mergedCounts = new Dictionary<string, int>();
             Task.Run(() =>
             {
                 for (int i = 0; i < filesToProcess.Count; i++)
                 {
+                    // Blocks until there is something in outputToBeMergedPool
                     var counts = outputToBeMergedPool.Take();
                     foreach (var grouping in counts)
                     {
@@ -82,13 +88,14 @@ namespace WordCount
                     }
                 }
 
+                // Notify the main thread that all merging is complete.
                 doneEvent.Set();
             });
 
 
             // Configure and start threads using ThreadPool.
+            // Queue up a worker for each input file that we have.
             Console.WriteLine("launching {0} tasks...", filesToProcess.Count);
-            //ThreadPool.SetMinThreads(16, 16);
             foreach (var fileInfo in filesToProcess)
             {
                 var wc = new WordCount(fileInfo);
@@ -97,24 +104,41 @@ namespace WordCount
             }
 
 
-            // Wait for all threads in pool to calculate.
+            // Wait for all threads in pool to calculate and be merged.
             doneEvent.WaitOne();
             Console.WriteLine("All calculations are complete.");
+            Console.WriteLine("Writing output...");
             
+            // Filter out some of the words that really aren't words.
+            // It is faster to do this as the final step than it is to do
+            // this inside each worker thread.
+            var mergedCountsFiltered = 
+                mergedCounts.Where(grouping =>
+                    // Filter out words that are one character, except "a" and "i".
+                    (grouping.Key.Length > 1 || grouping.Key == "a" || grouping.Key == "i") &&
+                    // Filter out words that contain anything that isn't a letter, a hyphen, or an apostrophe
+                    !grouping.Key.Any(c => !char.IsLetter(c) && c != '-' && c != '\'') &&
+                    // Filter out words that start with a hyphen.
+                    !grouping.Key.StartsWith("-") &&
+                    // Filter out words end with a hyphen.
+                    !grouping.Key.EndsWith("-"))
+                .OrderByDescending(kvp => kvp.Value)
+                .ToList();
 
-            var mergedCountsFiltered = mergedCounts
-                                        .Where(grouping =>
-                                                    (grouping.Key.Length > 1 || grouping.Key == "a" || grouping.Key == "i") &&
-                                                   !grouping.Key.Any(c => !char.IsLetter(c) && c != '-' && c != '\'') &&
-                                                   !grouping.Key.StartsWith("-") &&
-                                                   !grouping.Key.EndsWith("-"))
-                                        .OrderByDescending(kvp => kvp.Value);
-
-
+            // For each word count that we have, write out a line to our output file
+            // that contains that word and the frequency.
             var outFile = new StreamWriter(new FileStream(filesToProcess.First().DirectoryName + "/out.txt", FileMode.Create));
             foreach (var grouping in mergedCountsFiltered)
             {
                 outFile.WriteLine(grouping.Key + " " + grouping.Value);
+            }
+            outFile.Close();
+
+
+            outFile = new StreamWriter(new FileStream(filesToProcess.First().DirectoryName + "/frequencyDist.txt", FileMode.Create));
+            foreach (var grouping in mergedCountsFiltered.GroupBy(kvp => kvp.Value))
+            {
+                outFile.WriteLine(grouping.Key + ", " + grouping.Count());
             }
             outFile.Close();
         }
@@ -123,12 +147,10 @@ namespace WordCount
     public class WordCount
     {
         public static int NumberOfTasks;
-        private static readonly object doneLock = new object();
-
-        private static long totalTime;
         private static long numCompleted;
 
-        Stopwatch stopwatch = new Stopwatch();
+        private static readonly object doneLock = new object();
+        private static readonly Stopwatch stopwatch = new Stopwatch();
 
         public FileInfo FileInfo { get; private set; }
 
@@ -137,7 +159,8 @@ namespace WordCount
         {
             FileInfo = fileInfo;
 
-            stopwatch.Start();
+            if (!stopwatch.IsRunning)
+                stopwatch.Start();
         }
 
         // Wrapper method for use with thread pool.
@@ -154,23 +177,24 @@ namespace WordCount
                 NumberOfTasks--;
                 if (NumberOfTasks == 0)
                 {
+                    // All workers are. Tell the merger pool that we're done adding to it.
                     Program.outputToBeMergedPool.CompleteAdding();
                 }
 
                 Console.WriteLine("Average time per file: {0:F2}", ((double)stopwatch.ElapsedMilliseconds / 1000) / numCompleted);
             }
-
         }
 
-
-        // Recursive method that calculates the Nth Fibonacci number.
         public void CountWords()
         {
             Console.WriteLine("input has {0}", Program.inputPool.Count);
             string contents = Program.inputPool.Take();
 
+            // Split the file contents on newlines and spaces.
             var words = contents.Split(' ', '\r', '\n');
 
+            // Count up all the words in the input.
+            // Keep all our data as lowercase, and trim off any punctuation from the ends of each word.
             var counts = words
                 .GroupBy(s => s
                                 .ToLower()

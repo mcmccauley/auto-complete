@@ -84,6 +84,9 @@ client.FLUSHALL(function(){
 
 	var batch = client.batch()
 
+	PREFIX_OPTIMIZATION_THRESHOLD = 5;
+	var prefixCounts = {}
+
 	s = fs.createReadStream(fileName)
 	.pipe(es.split())
 	.pipe(
@@ -107,10 +110,25 @@ client.FLUSHALL(function(){
 				return;
 			}
 
-			for (var c = 1; c <= word.length; c++)
+			for (var c = word.length - 1; c >= 0; c--)
 			{
 				var substring = word.substring(0, c)
-				batch.ZADD(substring, (10000000000 - freq), word)
+				if (c <= PREFIX_OPTIMIZATION_THRESHOLD){
+					if (!prefixCounts[substring]){
+						prefixCounts[substring] = 1
+					}
+					else if (prefixCounts[substring] > config.NUM_SUGGESTIONS_TO_RETURN){
+						//console.log(substring, prefixCounts[substring])
+						break;
+					}
+					else
+					{
+						prefixCounts[substring]++;
+					}
+				}
+
+				batch.ZADD(substring, -freq, word)
+				// batch.ZREMRANGEBYRANK(substring, -(config.NUM_SUGGESTIONS_TO_RETURN + 1), 0)
 			}
 
 			if(lineNr % 500 == 0){
@@ -133,6 +151,8 @@ client.FLUSHALL(function(){
 		})
 		.on('end', function(){
 			console.log('Finished indexing file. Indexed lines: ' + lineNr)
+			
+			return;
 			console.log('Beginning cleanup...')
 
 			var cursor = '0';
