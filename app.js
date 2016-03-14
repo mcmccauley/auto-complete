@@ -110,7 +110,7 @@ client.FLUSHALL(function(){
 				return;
 			}
 
-			for (var c = word.length - 1; c >= 0; c--)
+			for (var c = word.length; c >= 0; c--)
 			{
 				var substring = word.substring(0, c)
 				if (c <= PREFIX_OPTIMIZATION_THRESHOLD){

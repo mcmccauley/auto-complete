@@ -29,7 +29,7 @@ body {
 /* !important ALL THE THINGS! */
 textarea + ul {
 	margin-right: 15px !important;
-	background-color: rgba(0, 0, 0, 0.50) !important;
+	background-color: rgba(0, 0, 0, 0.70) !important;
 	border-radius: 0px !important;
 	border: solid 1px white !important;
 	margin-top: 10px !important;
@@ -57,7 +57,7 @@ textarea + ul li {
 }
 
 #sugbox {
-	background-color: rgba(0, 0, 0, 0.60);
+	background-color: rgba(0, 0, 0, 0.80);
 	color: white;
 	font-size: 1.3em;
 	border: solid 1px;
