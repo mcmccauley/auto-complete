@@ -36,10 +36,6 @@ app.set('view engine', 'jade');
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.disable('etag')
-// app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({ extended: false }));
-// app.use(cookieParser());
-
 
 
 var router = express.Router();
@@ -78,13 +74,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // read file into redis
 function initMap(fileName) {
+console.log("flushing existing data from redis...")
 client.FLUSHALL(function(){
+	console.log("finished flushing.")
 
 	var lineNr = 1;
 
 	var batch = client.batch()
 
-	PREFIX_OPTIMIZATION_THRESHOLD = 5;
+	var PREFIX_OPTIMIZATION_THRESHOLD = config.PREFIX_OPTIMIZATION_THRESHOLD;
 	var prefixCounts = {}
 
 	s = fs.createReadStream(fileName)
@@ -102,8 +100,11 @@ client.FLUSHALL(function(){
 			var freq = parts[1];
 
 			if (freq < config.MINIMUM_ALLOWABLE_FREQUENCY){
+				// We've reached the end of the data that we care about. Stop looking.
+				// Execute whatever is left in the batch job before we end.
 				batch.exec(function(err, replices){
 					if (err) throw err;
+					// You can't end a paused stream. Resume it before we end it.
 					s.resume()
 					s.end()
 				})
@@ -115,33 +116,41 @@ client.FLUSHALL(function(){
 				var substring = word.substring(0, c)
 				if (c <= PREFIX_OPTIMIZATION_THRESHOLD){
 					if (!prefixCounts[substring]){
+						// New prefix! Set the count to 1.
 						prefixCounts[substring] = 1
 					}
 					else if (prefixCounts[substring] > config.NUM_SUGGESTIONS_TO_RETURN){
-						//console.log(substring, prefixCounts[substring])
+						// We know this prefix is already full in redis,
+						// and any sub-prefixes must also be full, so stop looking at this word.
 						break;
 					}
 					else
 					{
+						// Existing prefix not yet full. Increment the count.
 						prefixCounts[substring]++;
 					}
 				}
 
 				batch.ZADD(substring, -freq, word)
-				// batch.ZREMRANGEBYRANK(substring, -(config.NUM_SUGGESTIONS_TO_RETURN + 1), 0)
 			}
 
 			if(lineNr % 500 == 0){
+				// Execute the batch job every 500 lines.
+				// You can't go much higher than this or you get a stack overflow.
+				
+				// Log where we're at every 5000 lines.
 				if (lineNr % 5000 == 0)
 					console.log('' + lineNr + ': ' + line);
 	
 				batch.exec(function(err, replies){
 					if (err) throw err;	
+					// The batch job is all done. Resume the input stream.
 					s.resume();
 				})
 			} 
 			else
 			{
+				// Not ready to send the batch. Resume the stream right away to keep processing input.
 				s.resume();
 			}
 			
