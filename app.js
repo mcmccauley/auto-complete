@@ -151,43 +151,6 @@ client.FLUSHALL(function(){
 		})
 		.on('end', function(){
 			console.log('Finished indexing file. Indexed lines: ' + lineNr)
-			
-			return;
-			console.log('Beginning cleanup...')
-
-			var cursor = '0';
-
-			function scan() {
-				client.SCAN(
-					cursor,
-					'COUNT', '50000',
-					function(err, res) {
-						if (err) throw err;
-
-
-						// Update the cursor position for the next scan
-						cursor = res[0];
-						// get the SCAN result for this iteration
-						var keys = res[1];
-						console.log('cleaning up ' + keys.length + ' keys');
-
-						if (keys.length > 0) {
-							for (var i = keys.length - 1; i >= 0; i--) {
-								batch.ZREMRANGEBYRANK(keys[i], config.NUM_SUGGESTIONS_TO_RETURN + 1, 0)
-							};
-						}
-						batch.exec()
-
-						if (cursor === '0') {
-							return console.log('Cleanup complete');
-						}
-
-						return scan();
-					}
-				);
-			}
-
-			scan();
 		})
 	);
 });
